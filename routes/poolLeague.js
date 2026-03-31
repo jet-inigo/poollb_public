@@ -5,14 +5,12 @@ import {
   computeStandings,
   // fillRandomResults, // TESTING - commented out for main build
   formatMatchStatus,
-  generateRegularSchedule,
   getOrCreateCurrentSeason,
   getSeasonLabel,
   getTeamContext,
   isRegularSeasonComplete,
   seedPlayoffs,
   submitMatchScore,
-  updateMatchSchedule,
 } from "../services/poolLeagueService.js";
 
 const router = express.Router();
@@ -37,7 +35,7 @@ const serializeMatch = (match, selectedTeamId) => {
     phase: match.phase,
     week: match.week,
     round: match.round,
-    scheduledAt: match.scheduledAt,
+    completedAt: match.completedAt,
     teamScore,
     opponentScore,
     playoffRound: match.playoffRound,
@@ -168,7 +166,6 @@ router.get("/this-week", async (req, res) => {
 
       matches = await PoolLeagueMatch.find({ $and: regularFilters }).sort({
         week: 1,
-        round: 1,
         createdAt: 1,
       });
     }
@@ -251,18 +248,6 @@ router.get("/standings", async (req, res) => {
   }
 });
 
-router.post("/generate-schedule", async (_, res) => {
-  try {
-    const season = await getOrCreateCurrentSeason();
-    const result = await generateRegularSchedule(season._id);
-    const message = encodeURIComponent(result.message);
-    res.redirect(`/poolLeague/this-week?success=${message}`);
-  } catch (error) {
-    const message = encodeURIComponent(error.message || "Failed to generate schedule");
-    res.redirect(`/poolLeague/this-week?error=${message}`);
-  }
-});
-
 /* TESTING ROUTES - commented out for main build
 router.post("/fill-random-results", async (_, res) => {
   try {
@@ -302,18 +287,6 @@ router.post("/match/:matchId/score", async (req, res) => {
   } catch (error) {
     const teamIdParam = req.body.teamId ? `&teamId=${req.body.teamId}` : "";
     const message = encodeURIComponent(error.message || "Could not save score");
-    res.redirect(`/poolLeague/this-week?error=${message}${teamIdParam}`);
-  }
-});
-
-router.post("/match/:matchId/schedule", async (req, res) => {
-  try {
-    await updateMatchSchedule(req.params.matchId, req.body.scheduledAt);
-    const teamIdParam = req.body.teamId ? `&teamId=${req.body.teamId}` : "";
-    res.redirect(`/poolLeague/this-week?success=Match%20schedule%20updated${teamIdParam}`);
-  } catch (error) {
-    const teamIdParam = req.body.teamId ? `&teamId=${req.body.teamId}` : "";
-    const message = encodeURIComponent(error.message || "Could not update schedule");
     res.redirect(`/poolLeague/this-week?error=${message}${teamIdParam}`);
   }
 });

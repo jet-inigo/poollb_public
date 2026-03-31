@@ -17,10 +17,16 @@ const getCurrentSeasonDescriptor = () => {
 };
 
 const getOrCreateCurrentSeason = async () => {
-  const descriptor = getCurrentSeasonDescriptor();
-  let season = await PoolLeagueSeason.findOne(descriptor);
+  let season = await PoolLeagueSeason.findOne({
+    status: { $in: ["SIGNUP", "REGULAR", "PLAYOFFS"] },
+  }).sort({ createdAt: -1 });
 
   if (!season) {
+    season = await PoolLeagueSeason.findOne({}).sort({ createdAt: -1 });
+  }
+
+  if (!season) {
+    const descriptor = getCurrentSeasonDescriptor();
     season = await PoolLeagueSeason.create({
       ...descriptor,
       regularWeeks: REGULAR_WEEKS,
@@ -153,10 +159,6 @@ const generateRegularSchedule = async (seasonId) => {
     throw new Error("Regular season has already started for this season.");
   }
 
-  if (season.startDate && new Date() < new Date(season.startDate)) {
-    throw new Error("The season has not started yet. Schedule generation is not allowed before the start date.");
-  }
-
   const existing = await PoolLeagueMatch.countDocuments({ seasonId, phase: "REGULAR" });
   if (existing > 0) {
     return { created: 0, message: "Regular season schedule already exists." };
@@ -181,7 +183,6 @@ const generateRegularSchedule = async (seasonId) => {
         seasonId,
         phase: "REGULAR",
         week: Math.ceil(roundData.round / 2),
-        round: roundData.round,
         teamAId: teamA._id,
         teamBId: teamB._id,
         teamAName: teamA.name,
@@ -326,19 +327,6 @@ const isRegularSeasonComplete = async (seasonId) => {
     return false;
   }
 
-  // Trigger if end date has passed
-  if (season.startDate) {
-    const regularWeeks = season.regularWeeks || 4;
-    const daysBetweenWeeks = season.daysBetweenWeeks || 7;
-    const totalBreakDays = season.breakAfterWeek ? (season.breakWeeks || 1) * daysBetweenWeeks : 0;
-    const seasonEndDate = new Date(season.startDate);
-    seasonEndDate.setDate(seasonEndDate.getDate() + regularWeeks * daysBetweenWeeks + totalBreakDays);
-    if (new Date() >= seasonEndDate) {
-      return true;
-    }
-  }
-
-  // Also trigger if all regular season matches are complete
   const totalMatches = await PoolLeagueMatch.countDocuments({
     seasonId,
     phase: "REGULAR",
@@ -540,7 +528,7 @@ const tryCreateNextRoundSeries = async (seasonId, round, leftSeriesKey, rightSer
   existing.winnerTeamId = undefined;
   existing.loserTeamId = undefined;
   existing.completedAt = undefined;
-  existing.status = existing.scheduledAt ? "SCHEDULED" : "TBD";
+  existing.status = "TBD";
 
   await existing.save();
 };
@@ -612,10 +600,6 @@ const submitMatchScore = async (matchId, winnerTeamName, inputTeamAScore = null,
     match.status = "COMPLETE";
     match.completedAt = new Date();
 
-    if (!match.scheduledAt) {
-      match.scheduledAt = new Date();
-    }
-
     await match.save();
     await updatePlayoffProgression(match.seasonId);
 
@@ -644,9 +628,6 @@ const submitMatchScore = async (matchId, winnerTeamName, inputTeamAScore = null,
     match.loserTeamId = loserTeamId;
     match.status = "COMPLETE";
     match.completedAt = new Date();
-    if (!match.scheduledAt) {
-      match.scheduledAt = new Date();
-    }
 
     await match.save();
 
@@ -659,33 +640,6 @@ const submitMatchScore = async (matchId, winnerTeamName, inputTeamAScore = null,
   return match;
 };
 
-const updateMatchSchedule = async (matchId, scheduledAt) => {
-  const match = await PoolLeagueMatch.findById(matchId);
-
-  if (!match) {
-    throw new Error("Match not found.");
-  }
-
-  if (scheduledAt) {
-    const parsed = new Date(scheduledAt);
-    if (Number.isNaN(parsed.getTime())) {
-      throw new Error("Invalid schedule date/time.");
-    }
-    match.scheduledAt = parsed;
-  } else {
-    match.scheduledAt = undefined;
-  }
-
-  if (match.scheduledAt) {
-    match.status = match.status === "COMPLETE" ? "COMPLETE" : "SCHEDULED";
-  } else {
-    match.status = match.status === "COMPLETE" ? "COMPLETE" : "TBD";
-  }
-
-  await match.save();
-  return match;
-};
-
 const getTeamContext = async (seasonId, selectedTeamId) => {
   const teams = await PoolLeagueTeam.find({ seasonId }).sort({ name: 1 });
   const activeTeamId = selectedTeamId || (teams[0]?._id ? toId(teams[0]._id) : null);
@@ -695,10 +649,6 @@ const getTeamContext = async (seasonId, selectedTeamId) => {
 const formatMatchStatus = (match) => {
   if (match.status === "COMPLETE") {
     return "Complete";
-  }
-
-  if (match.scheduledAt || match.status === "SCHEDULED") {
-    return "Scheduled";
   }
 
   return "TBD";
@@ -740,5 +690,4 @@ export {
   isRegularSeasonComplete,
   seedPlayoffs,
   submitMatchScore,
-  updateMatchSchedule,
 };

@@ -123,16 +123,6 @@ const seedSeasons = async () => {
   }
 };
 
-const getCurrentSeasonDescriptor = () => {
-  const now = new Date();
-  const month = now.getMonth();
-  const semester = month < 6 ? "Spring" : "Fall";
-  return {
-    year: now.getFullYear(),
-    semester,
-  };
-};
-
 const seedPoolLeagueTeams = async () => {
   const rawTeams = await readTeamsFromFile();
 
@@ -141,15 +131,12 @@ const seedPoolLeagueTeams = async () => {
     return;
   }
 
-  const seasonDescriptor = getCurrentSeasonDescriptor();
-  const season =
-    (await PoolLeagueSeason.findOne(seasonDescriptor)) ||
-    (await PoolLeagueSeason.create({
-      ...seasonDescriptor,
-      status: "SIGNUP",
-      regularWeeks: 4,
-      regularRounds: 8,
-    }));
+  const season = await PoolLeagueSeason.findOne({ status: "SIGNUP" }).sort({ createdAt: -1 });
+
+  if (!season) {
+    console.log("No signup season found; skipped Pool League team seeding.");
+    return;
+  }
 
   if (season.status !== "SIGNUP") {
     console.log("Pool League season is not in signup state; skipped team seeding.");

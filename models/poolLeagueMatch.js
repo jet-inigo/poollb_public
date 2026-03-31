@@ -12,7 +12,6 @@ const poolLeagueMatchSchema = new mongoose.Schema({
     required: true,
   },
   week: Number,
-  round: Number,
   teamAId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "PoolLeagueTeam",
@@ -27,10 +26,9 @@ const poolLeagueMatchSchema = new mongoose.Schema({
   teamBName: { type: String, required: true },
   status: {
     type: String,
-    enum: ["TBD", "SCHEDULED", "COMPLETE"],
+    enum: ["TBD", "COMPLETE"],
     default: "TBD",
   },
-  scheduledAt: Date,
   teamAScore: Number,
   teamBScore: Number,
   winnerTeamId: {

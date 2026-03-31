@@ -72,7 +72,7 @@
         </div>
 
         <div class="match-meta">
-          <p><strong>Time:</strong> <%= match.scheduledAt ? new Date(match.scheduledAt).toLocaleString('en-US', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'TBD' %></p>
+          <p><strong>Completed:</strong> <%= match.completedAt ? new Date(match.completedAt).toLocaleString('en-US', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'TBD' %></p>
         </div>
 
         <% if (match.statusLabel !== 'Complete') { %>
@@ -150,12 +150,6 @@
         <% } %>
       </div>
     <% }); %>
-  <% } %>
-
-  <% if (season.status === 'SIGNUP') { %>
-    <form method="POST" action="/poolLeague/generate-schedule" class="admin-control">
-      <button type="submit" class="submit-button">Generate <%= season.regularWeeks %>-Week Regular Season Schedule</button>
-    </form>
   <% } %>
 
 <%# TESTING BUTTONS - commented out for main build %>
